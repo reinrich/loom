@@ -82,7 +82,7 @@ inline address frame::get_deopt_original_pc() const {
   return nullptr;
 }
 
-#ifdef ASSERT
+#if defined(ASSERT) && !defined(PPC64)
 static address get_register_address_in_stub(const frame& stub_fr, VMReg reg) {
   RegisterMap map(nullptr,
                   RegisterMap::UpdateMap::include,
@@ -94,6 +94,10 @@ static address get_register_address_in_stub(const frame& stub_fr, VMReg reg) {
 #endif
 
 inline JavaThread** frame::saved_thread_address(const frame& f) {
+#if defined(PPC64)
+  // The current thread (JavaThread*) is never stored on the stack
+  return nullptr;
+#else
   CodeBlob* cb = f.cb();
   assert(cb != nullptr && cb->is_runtime_stub(), "invalid frame");
 
@@ -107,6 +111,7 @@ inline JavaThread** frame::saved_thread_address(const frame& f) {
   }
   assert(get_register_address_in_stub(f, SharedRuntime::thread_register()) == (address)thread_addr, "wrong thread address");
   return thread_addr;
+#endif
 }
 
 template <typename RegisterMapT>

@@ -131,7 +131,9 @@ void C1_MacroAssembler::lock_object(Register Rmark, Register Roop, Register Rbox
   }
 
   bind(done);
-  inc_held_monitor_count(Rmark /*tmp*/);
+  if (LockingMode != LM_LIGHTWEIGHT) {
+    inc_held_monitor_count(Rmark /*tmp*/);
+  }
 }
 
 
@@ -175,7 +177,9 @@ void C1_MacroAssembler::unlock_object(Register Rmark, Register Roop, Register Rb
 
   // Done
   bind(done);
-  dec_held_monitor_count(Rmark /*tmp*/);
+  if (LockingMode != LM_LIGHTWEIGHT) {
+    dec_held_monitor_count(Rmark /*tmp*/);
+  }
 }
 
 
