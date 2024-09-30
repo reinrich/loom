@@ -72,7 +72,9 @@ void FreezeBase::adjust_interpreted_frame_unextended_sp(frame& f) {
 }
 
 inline void FreezeBase::prepare_freeze_interpreted_top_frame(const frame& f) {
-  Unimplemented();
+  // nothing to do
+  DEBUG_ONLY( intptr_t* lspp = (intptr_t*) &(f.get_ijava_state()->top_frame_sp); )
+  assert(*lspp == f.unextended_sp() - f.fp(), "should be " INTPTR_FORMAT " usp:" INTPTR_FORMAT " fp:" INTPTR_FORMAT, *lspp, p2i(f.unextended_sp()), p2i(f.fp()));
 }
 
 inline void FreezeBase::relativize_interpreted_frame_metadata(const frame& f, const frame& hf) {
@@ -354,6 +356,7 @@ inline void Thaw<ConfigT>::patch_caller_links(intptr_t* sp, intptr_t* bottom) {
     if (is_entry_frame) {
       callers_sp = _cont.entryFP();
     } else {
+      assert(!Interpreter::contains(pc), "sp:" PTR_FORMAT " pc:" PTR_FORMAT, p2i(sp), p2i(pc));
       CodeBlob* cb = CodeCache::find_blob_fast(pc);
       callers_sp = sp + cb->frame_size();
     }
@@ -484,8 +487,8 @@ inline frame ThawBase::new_entry_frame() {
 template<typename FKind> frame ThawBase::new_stack_frame(const frame& hf, frame& caller, bool bottom) {
   assert(FKind::is_instance(hf), "");
 
-  assert(is_aligned(caller.fp(), frame::frame_alignment), "");
-  assert(is_aligned(caller.sp(), frame::frame_alignment), "");
+  assert(is_aligned(caller.fp(), frame::frame_alignment), PTR_FORMAT, p2i(caller.fp()));
+  // caller.sp() can be unaligned. This is fixed below.
   if (FKind::interpreted) {
     // Note: we have to overlap with the caller, at least if it is interpreted, to match the
     // max_thawing_size calculation during freeze. See also comment above.
@@ -514,7 +517,7 @@ template<typename FKind> frame ThawBase::new_stack_frame(const frame& hf, frame&
     return f;
   } else {
     int fsize = FKind::size(hf);
-    int argsize = hf.compiled_frame_stack_argsize();
+    int argsize = FKind::stack_argsize(hf);
     intptr_t* frame_sp = caller.sp() - fsize;
 
     if ((bottom && argsize > 0) || caller.is_interpreted_frame()) {
@@ -547,18 +550,36 @@ inline void ThawBase::derelativize_interpreted_frame_metadata(const frame& hf, c
   // Keep top_frame_sp relativized.
 }
 
-inline void ThawBase::fix_native_wrapper_return_pc_pd(frame& top) {
-  Unimplemented();
-}
-
 inline intptr_t* ThawBase::push_resume_adapter(frame& top) {
-  Unimplemented();
-  return nullptr;
+  intptr_t* sp = top.sp();
+
+  // If top is interpreted then a stub is required to restore the interpreter state.
+  if (top.is_interpreted_frame()) {
+    // Push stub frame.
+    sp -= frame::metadata_words;
+    assert(sp >= _top_stack_address, "thawing space overflow");
+    frame::java_abi* stub_abi = (frame::java_abi*)sp;
+    stub_abi->lr = (uint64_t)Interpreter::cont_resume_interpreter_adapter();
+    stub_abi->callers_sp = (uint64_t)top.sp();
+  }
+
+  log_develop_trace(continuations, preempt)("push_resume_adapter() initial sp: " INTPTR_FORMAT " final sp: " INTPTR_FORMAT,
+                                            p2i(top.sp()), p2i(sp));
+
+  return sp;
 }
 
 inline intptr_t* ThawBase::push_cleanup_continuation() {
-  Unimplemented();
-  return nullptr;
+  frame enterSpecial = new_entry_frame();
+  frame::common_abi* enterSpecial_abi = (frame::common_abi*)enterSpecial.sp();
+
+  enterSpecial_abi->lr = (intptr_t)ContinuationEntry::cleanup_pc();
+
+  log_develop_trace(continuations, preempt)("push_cleanup_continuation enterSpecial sp: " INTPTR_FORMAT " cleanup pc: " INTPTR_FORMAT,
+                                            p2i(enterSpecial_abi),
+                                            p2i(ContinuationEntry::cleanup_pc()));
+
+  return enterSpecial.sp();
 }
 
 inline void ThawBase::patch_pd(frame& f, const frame& caller) {
@@ -568,7 +589,17 @@ inline void ThawBase::patch_pd(frame& f, const frame& caller) {
 }
 
 inline void ThawBase::patch_pd(frame& f, intptr_t* caller_sp) {
-  Unimplemented();
+  assert(f.own_abi()->callers_sp == (uint64_t)caller_sp, "should have been fixed by patch_caller_links");
+}
+
+inline void ThawBase::fix_native_wrapper_return_pc_pd(frame& top) {
+  // Nothing to do since the last java pc saved before making the call to
+  // JVM_MonitorWait() was already set to the correct resume pc. Just
+  // do some sanity check.
+#ifdef ASSERT
+  Method* method = top.is_interpreted_frame() ? top.interpreter_frame_method() : CodeCache::find_blob(top.pc())->as_nmethod()->method();
+  assert(method->is_object_wait0(), "");
+#endif
 }
 
 //

@@ -115,7 +115,13 @@ class MacroAssembler: public Assembler {
   // Global TOC.
   void calculate_address_from_global_toc(Register dst, address addr,
                                          bool hi16 = true, bool lo16 = true,
-                                         bool add_relocation = true, bool emit_dummy_addr = false);
+                                         bool add_relocation = true, bool emit_dummy_addr = false,
+                                         bool add_addr_to_reloc = true);
+  void calculate_address_from_global_toc(Register dst, Label& addr,
+                                         bool hi16 = true, bool lo16 = true,
+                                         bool add_relocation = true, bool emit_dummy_addr = false) {
+    calculate_address_from_global_toc(dst, target(addr), hi16, lo16, add_relocation, emit_dummy_addr, false);
+  }
   inline void calculate_address_from_global_toc_hi16only(Register dst, address addr) {
     calculate_address_from_global_toc(dst, addr, true, false);
   };
@@ -285,6 +291,9 @@ class MacroAssembler: public Assembler {
   // This is especially useful for making calls to the JRT in places in which this hasn't been done before;
   // e.g. with the introduction of LRBs (load reference barriers) for concurrent garbage collection.
   void clobber_volatile_gprs(Register excluded_register = noreg);
+  // Load bad values into registers that are nonvolatile according to the ABI except R16_thread and R29_TOC.
+  // This is done after vthread preemption and before vthread resume.
+  void clobber_nonvolatile_registers() PRODUCT_RETURN;
   void clobber_carg_stack_slots(Register tmp);
 
   void save_nonvolatile_gprs(   Register dst_base, int offset);
@@ -695,8 +704,8 @@ class MacroAssembler: public Assembler {
   // Support for last Java frame (but use call_VM instead where possible):
   // access R16_thread->last_Java_sp.
   void set_last_Java_frame(Register last_java_sp, Register last_Java_pc);
-  void reset_last_Java_frame(void);
-  void set_top_ijava_frame_at_SP_as_last_Java_frame(Register sp, Register tmp1);
+  void reset_last_Java_frame(bool check_last_java_sp = true);
+  void set_top_ijava_frame_at_SP_as_last_Java_frame(Register sp, Register tmp1, Label* jpc = nullptr);
 
   // Read vm result from thread: oop_result = R16_thread->result;
   void get_vm_result  (Register oop_result);
@@ -909,7 +918,7 @@ class MacroAssembler: public Assembler {
 
  private:
   void asm_assert_mems_zero(bool check_equal, int size, int mem_offset, Register mem_base,
-                            const char* msg);
+                            const char* msg) NOT_DEBUG_RETURN;
 
  public:
 

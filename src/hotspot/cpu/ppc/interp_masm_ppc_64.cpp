@@ -932,7 +932,9 @@ void InterpreterMacroAssembler::remove_activation(TosState state,
 //
 void InterpreterMacroAssembler::lock_object(Register monitor, Register object) {
   if (LockingMode == LM_MONITOR) {
+    push_cont_fastpath();
     call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::monitorenter), monitor);
+    pop_cont_fastpath();
   } else {
     // template code (for LM_LEGACY):
     //
@@ -953,8 +955,7 @@ void InterpreterMacroAssembler::lock_object(Register monitor, Register object) {
     const Register current_header   = R9_ARG7;
     const Register tmp              = R10_ARG8;
 
-    Label count_locking, done;
-    Label cas_failed, slow_case;
+    Label count_locking, done, slow_case, cas_failed;
 
     assert_different_registers(header, object_mark_addr, current_header, tmp);
 
@@ -969,7 +970,7 @@ void InterpreterMacroAssembler::lock_object(Register monitor, Register object) {
 
     if (LockingMode == LM_LIGHTWEIGHT) {
       lightweight_lock(monitor, object, header, tmp, slow_case);
-      b(count_locking);
+      b(done);
     } else if (LockingMode == LM_LEGACY) {
       // Load markWord from object into header.
       ld(header, oopDesc::mark_offset_in_bytes(), object);
@@ -1035,12 +1036,17 @@ void InterpreterMacroAssembler::lock_object(Register monitor, Register object) {
     // None of the above fast optimizations worked so we have to get into the
     // slow case of monitor enter.
     bind(slow_case);
+    push_cont_fastpath();
     call_VM(noreg, CAST_FROM_FN_PTR(address, InterpreterRuntime::monitorenter), monitor);
-    b(done);
+    pop_cont_fastpath();
     // }
-    align(32, 12);
-    bind(count_locking);
-    inc_held_monitor_count(current_header /*tmp*/);
+
+    if (LockingMode == LM_LEGACY) {
+      b(done);
+      align(32, 12);
+      bind(count_locking);
+      inc_held_monitor_count(current_header /*tmp*/);
+    }
     bind(done);
   }
 }
@@ -1137,7 +1143,9 @@ void InterpreterMacroAssembler::unlock_object(Register monitor) {
     bind(free_slot);
     li(R0, 0);
     std(R0, in_bytes(BasicObjectLock::obj_offset()), monitor);
-    dec_held_monitor_count(current_header /*tmp*/);
+    if (LockingMode == LM_LEGACY) {
+      dec_held_monitor_count(current_header /*tmp*/);
+    }
     bind(done);
   }
 }
