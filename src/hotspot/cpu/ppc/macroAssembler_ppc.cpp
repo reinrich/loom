@@ -2592,17 +2592,18 @@ void MacroAssembler::compiler_fast_lock_object(ConditionRegister flag, Register 
     bne(flag, failure);
   }
 
-  // Handle existing monitor.
-  // The object has an existing monitor iff (mark & monitor_value) != 0.
-  andi_(temp, displaced_header, markWord::monitor_value);
-  bne(CCR0, object_has_monitor);
-
   if (LockingMode == LM_MONITOR) {
     // Set NE to indicate 'failure' -> take slow-path.
     crandc(flag, Assembler::equal, flag, Assembler::equal);
     b(failure);
   } else {
     assert(LockingMode == LM_LEGACY, "must be");
+
+    // Handle existing monitor.
+    // The object has an existing monitor iff (mark & monitor_value) != 0.
+    andi_(temp, displaced_header, markWord::monitor_value);
+    bne(CCR0, object_has_monitor);
+
     // Set displaced_header to be (markWord of object | UNLOCK_VALUE).
     ori(displaced_header, displaced_header, markWord::unlocked_value);
 
