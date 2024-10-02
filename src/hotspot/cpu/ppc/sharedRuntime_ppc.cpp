@@ -2212,7 +2212,7 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
   Register r_temp_4     = R25;
   Register r_temp_5     = R26;
   Register r_temp_6     = R27;
-  Register r_last_java_pc  = R28;
+  Register r_last_java_pc = R28;
 
   Register r_carg1_jnienv        = noreg;
   Register r_carg2_classorobject = noreg;

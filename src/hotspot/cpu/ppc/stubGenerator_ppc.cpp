@@ -4485,7 +4485,7 @@ address generate_lookup_secondary_supers_table_stub(u1 super_klass_index) {
     address start = __ pc();
 
     if (kind == Continuation::thaw_top) {
-      __ zap_nonvolatile_registers(); // Except R16_thread and R29_TOC
+      __ clobber_nonvolatile_registers(); // Except R16_thread and R29_TOC
     }
 
     if (return_barrier) {
@@ -4581,7 +4581,7 @@ address generate_lookup_secondary_supers_table_stub(u1 super_klass_index) {
     StubCodeMark mark(this, "StubRoutines","Continuation preempt stub");
     address start = __ pc();
 
-    __ zap_nonvolatile_registers(); // Except R16_thread and R29_TOC
+    __ clobber_nonvolatile_registers(); // Except R16_thread and R29_TOC
 
     __ reset_last_Java_frame();
 

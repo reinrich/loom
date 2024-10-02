@@ -100,6 +100,8 @@ class Register {
   constexpr bool is_valid()       const { return ( 0 <= _encoding && _encoding <  number_of_registers); }
   constexpr bool is_volatile()    const { return ( 0 <= _encoding && _encoding <= 13 ); }
   constexpr bool is_nonvolatile() const { return (14 <= _encoding && _encoding <= 31 ); }
+  // Nonvolatile registers are not save accross vthread preemption/resume.
+  // Exception: R22 and R31 in TemplateInterpreterGenerator::generate_native_entry()
   constexpr bool is_nonvolatile_accross_preemption() const { return (_encoding == 22) || (_encoding == 31 ); }
 
   const char* name() const;

@@ -734,6 +734,36 @@ void MacroAssembler::clobber_volatile_gprs(Register excluded_register) {
   }
 }
 
+void MacroAssembler::clobber_nonvolatile_registers() {
+  BLOCK_COMMENT("clobber nonvolatile registers {");
+  Register regs[] = {
+      R14,
+      R15,
+      // don't zap R16_thread
+      R17,
+      R18,
+      R19,
+      R20,
+      R21,
+      R22,
+      R23,
+      R24,
+      R25,
+      R26,
+      R27,
+      R28,
+      // don't zap R29_TOC
+      R30,
+      R31
+  };
+  Register bad = regs[0];
+  load_const_optimized(bad, 0xbad0101babe11111);
+  for (uint32_t i = 1; i < (sizeof(regs) / sizeof(Register)); i++) {
+    mr(regs[i], bad);
+  }
+  BLOCK_COMMENT("} clobber nonvolatile registers");
+}
+
 void MacroAssembler::clobber_carg_stack_slots(Register tmp) {
   const int magic_number = 0x43;
 
@@ -2771,7 +2801,7 @@ void MacroAssembler::compiler_fast_unlock_object(ConditionRegister flag, Registe
 void MacroAssembler::compiler_fast_lock_lightweight_object(ConditionRegister flag, Register obj, Register box,
                                                            Register tmp1, Register tmp2, Register tmp3) {
   assert_different_registers(obj, box, tmp1, tmp2, tmp3);
-  assert (UseObjectMonitorTable || tmp3 == noreg, "tmp3 not needed");
+  assert(UseObjectMonitorTable || tmp3 == noreg, "tmp3 not needed");
   assert(flag == CCR0, "bad condition register");
 
   // Handle inflated monitor.
@@ -4489,16 +4519,6 @@ void MacroAssembler::asm_assert_mems_zero(bool check_equal, int size, int mem_of
 }
 #endif // ASSERT
 
-#ifdef ASSERT
-void MacroAssembler::asm_assert_not_zero(Register reg, const char* msg) {
-    Label ok;
-    cmpdi(CCR0, reg, 0);
-    bne(CCR0, ok);
-    stop(msg);
-    bind(ok);
-}
-#endif // ASSERT
-
 void MacroAssembler::verify_coop(Register coop, const char* msg) {
   if (!VerifyOops) { return; }
   if (UseCompressedOops) { decode_heap_oop(coop); }
@@ -4618,37 +4638,6 @@ void MacroAssembler::zap_from_to(Register low, int before, Register high, int af
   }
   BLOCK_COMMENT("} zap memory region");
 }
-
-void MacroAssembler::zap_nonvolatile_registers() {
-  BLOCK_COMMENT("zap nonvolatile registers {");
-  Register regs[] = {
-      R14,
-      R15,
-      // don't zap R16_thread
-      R17,
-      R18,
-      R19,
-      R20,
-      R21,
-      R22,
-      R23,
-      R24,
-      R25,
-      R26,
-      R27,
-      R28,
-      // don't zap R29_TOC
-      R30,
-      R31
-  };
-  Register bad = regs[0];
-  load_const_optimized(bad, 0xbad0101babe11111);
-  for (uint32_t i = 1; i < (sizeof(regs) / sizeof(Register)); i++) {
-    mr(regs[i], bad);
-  }
-  BLOCK_COMMENT("} zap nonvolatile registers");
-}
-
 
 #endif // !PRODUCT
 

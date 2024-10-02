@@ -291,6 +291,9 @@ class MacroAssembler: public Assembler {
   // This is especially useful for making calls to the JRT in places in which this hasn't been done before;
   // e.g. with the introduction of LRBs (load reference barriers) for concurrent garbage collection.
   void clobber_volatile_gprs(Register excluded_register = noreg);
+  // Load bad values into registers that are nonvolatile according to the ABI except R16_thread and R29_TOC.
+  // This is done after vthread preemption and before vthread resume.
+  void clobber_nonvolatile_registers() PRODUCT_RETURN;
   void clobber_carg_stack_slots(Register tmp);
 
   void save_nonvolatile_gprs(   Register dst_base, int offset);
@@ -926,8 +929,6 @@ class MacroAssembler: public Assembler {
     asm_assert_mems_zero(false, 8, mem_offset, mem_base, msg);
   }
 
-  void asm_assert_not_zero(Register reg, const char* msg) NOT_DEBUG_RETURN;
-
   // Calls verify_oop. If UseCompressedOops is on, decodes the oop.
   // Preserves reg.
   void verify_coop(Register reg, const char*);
@@ -966,8 +967,6 @@ class MacroAssembler: public Assembler {
   void should_not_reach_here(const char* msg = nullptr) { stop(stop_shouldnotreachhere, msg); }
 
   void zap_from_to(Register low, int before, Register high, int after, Register val, Register addr) PRODUCT_RETURN;
-  // Load bad values into registers that are nonvolatile according to the ABI except R16_thread and R29_TOC
-  void zap_nonvolatile_registers() PRODUCT_RETURN;
 };
 
 // class SkipIfEqualZero:
