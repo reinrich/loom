@@ -2622,18 +2622,17 @@ void MacroAssembler::compiler_fast_lock_object(ConditionRegister flag, Register 
     bne(flag, failure);
   }
 
+  // Handle existing monitor.
+  // The object has an existing monitor iff (mark & monitor_value) != 0.
+  andi_(temp, displaced_header, markWord::monitor_value);
+  bne(CCR0, object_has_monitor);
+
   if (LockingMode == LM_MONITOR) {
     // Set NE to indicate 'failure' -> take slow-path.
     crandc(flag, Assembler::equal, flag, Assembler::equal);
     b(failure);
   } else {
     assert(LockingMode == LM_LEGACY, "must be");
-
-    // Handle existing monitor.
-    // The object has an existing monitor iff (mark & monitor_value) != 0.
-    andi_(temp, displaced_header, markWord::monitor_value);
-    bne(CCR0, object_has_monitor);
-
     // Set displaced_header to be (markWord of object | UNLOCK_VALUE).
     ori(displaced_header, displaced_header, markWord::unlocked_value);
 
@@ -2710,10 +2709,12 @@ void MacroAssembler::compiler_fast_lock_object(ConditionRegister flag, Register 
   addi(recursions, recursions, 1);
   std(recursions, in_bytes(ObjectMonitor::recursions_offset() - ObjectMonitor::owner_offset()), temp);
 
-  // flag == EQ indicates success, increment held monitor count
+  // flag == EQ indicates success, increment held monitor count if LM_LEGACY is enabled
   // flag == NE indicates failure
   bind(success);
-  inc_held_monitor_count(temp);
+  if (LockingMode == LM_LEGACY) {
+    inc_held_monitor_count(temp);
+  }
   bind(failure);
 }
 
@@ -2732,19 +2733,18 @@ void MacroAssembler::compiler_fast_unlock_object(ConditionRegister flag, Registe
     beq(flag, success);
   }
 
+  // Handle existing monitor.
+  // The object has an existing monitor iff (mark & monitor_value) != 0.
+  ld(current_header, oopDesc::mark_offset_in_bytes(), oop);
+  andi_(R0, current_header, markWord::monitor_value);
+  bne(CCR0, object_has_monitor);
+
   if (LockingMode == LM_MONITOR) {
     // Set NE to indicate 'failure' -> take slow-path.
     crandc(flag, Assembler::equal, flag, Assembler::equal);
     b(failure);
   } else {
     assert(LockingMode == LM_LEGACY, "must be");
-
-    // Handle existing monitor.
-    // The object has an existing monitor iff (mark & monitor_value) != 0.
-    ld(current_header, oopDesc::mark_offset_in_bytes(), oop);
-    andi_(R0, current_header, markWord::monitor_value);
-    bne(CCR0, object_has_monitor);
-
     // Check if it is still a light weight lock, this is is true if we see
     // the stack address of the basicLock in the markWord of the object.
     // Cmpxchg sets flag to cmpd(current_header, box).
@@ -2812,10 +2812,12 @@ void MacroAssembler::compiler_fast_unlock_object(ConditionRegister flag, Registe
   crxor(flag, Assembler::equal, flag, Assembler::equal); // Set flag = NE => slow path
   b(failure);
 
-  // flag == EQ indicates success, decrement held monitor count
+  // flag == EQ indicates success, decrement held monitor count if LM_LEGACY is enabled
   // flag == NE indicates failure
   bind(success);
-  dec_held_monitor_count(temp);
+  if (LockingMode == LM_LEGACY) {
+    dec_held_monitor_count(temp);
+  }
   bind(failure);
 }
 
@@ -4733,6 +4735,7 @@ void MacroAssembler::pop_cont_fastpath() {
 
 // Note: Must preserve CCR0 EQ (invariant).
 void MacroAssembler::inc_held_monitor_count(Register tmp) {
+  assert(LockingMode == LM_LEGACY, "");
   ld(tmp, in_bytes(JavaThread::held_monitor_count_offset()), R16_thread);
 #ifdef ASSERT
   Label ok;
@@ -4748,6 +4751,7 @@ void MacroAssembler::inc_held_monitor_count(Register tmp) {
 
 // Note: Must preserve CCR0 EQ (invariant).
 void MacroAssembler::dec_held_monitor_count(Register tmp) {
+  assert(LockingMode == LM_LEGACY, "");
   ld(tmp, in_bytes(JavaThread::held_monitor_count_offset()), R16_thread);
 #ifdef ASSERT
   Label ok;
