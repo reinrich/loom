@@ -2765,13 +2765,6 @@ void MacroAssembler::compiler_fast_unlock_object(ConditionRegister flag, Registe
   bind(object_has_monitor);
   STATIC_ASSERT(markWord::monitor_value <= INT_MAX);
   addi(current_header, current_header, -(int)markWord::monitor_value); // monitor
-  ld(temp,             in_bytes(ObjectMonitor::owner_offset()), current_header);
-
-  Register thread_id = displaced_header;
-  ld(thread_id, in_bytes(JavaThread::lock_id_offset()), R16_thread);
-  cmpd(flag, temp, thread_id);
-  bne(flag, failure);
-
   ld(displaced_header, in_bytes(ObjectMonitor::recursions_offset()), current_header);
 
   addic_(displaced_header, displaced_header, -1);
