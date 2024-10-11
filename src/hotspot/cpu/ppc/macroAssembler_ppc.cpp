@@ -1318,48 +1318,20 @@ int MacroAssembler::ic_check(int end_alignment) {
 void MacroAssembler::call_VM_base(Register oop_result,
                                   Register last_java_sp,
                                   address  entry_point,
-                                  bool     check_exceptions) {
+                                  bool     check_exceptions,
+                                  Label*   last_java_pc) {
   BLOCK_COMMENT("call_VM {");
   // Determine last_java_sp register.
   if (!last_java_sp->is_valid()) {
     last_java_sp = R1_SP;
   }
-  Label last_java_pc;
-  set_top_ijava_frame_at_SP_as_last_Java_frame(last_java_sp, R11_scratch1, &last_java_pc);
-
-  bool call_can_be_preempted = LockingMode != LM_LEGACY &&
-                               entry_point == CAST_FROM_FN_PTR(address, InterpreterRuntime::monitorenter);
-  if (call_can_be_preempted) {
-    // Make sure the values in R31 and R22 are retained even if the vthread gets preempted.
-    assert(R31->is_nonvolatile_accross_preemption() && R22->is_nonvolatile_accross_preemption(), "");
-    ld(R3_ARG1, _abi0(callers_sp), R1_SP); // load FP
-    std(R31, _ijava_state_neg(lresult), R3_ARG1);
-    std(R22, _ijava_state_neg(fresult), R3_ARG1);
-  }
+  set_top_ijava_frame_at_SP_as_last_Java_frame(last_java_sp, R11_scratch1, last_java_pc);
 
   // ARG1 must hold thread address.
   mr(R3_ARG1, R16_thread);
   address return_pc = call_c(entry_point, relocInfo::none);
 
-  if (call_can_be_preempted) {
-    Label not_preempted;
-    ld(R0, in_bytes(JavaThread::preempt_alternate_return_offset()), R16_thread);
-    cmpdi(CCR0, R0, 0);
-    beq(CCR0, not_preempted);
-    mtlr(R0);
-    li(R0, 0);
-    std(R0, in_bytes(JavaThread::preempt_alternate_return_offset()), R16_thread);
-    blr();
-    bind(last_java_pc); // == resume pc after preemtion
-    ld(R3_ARG1, _abi0(callers_sp), R1_SP); // load FP
-    ld(R31, _ijava_state_neg(lresult), R3_ARG1);
-    ld(R22, _ijava_state_neg(fresult), R3_ARG1);
-    bind(not_preempted);
-  } else {
-    bind(last_java_pc);
-  }
-
-  reset_last_Java_frame(!call_can_be_preempted /* check_last_java_sp */);
+  reset_last_Java_frame();
 
   // Check for pending exceptions.
   if (check_exceptions) {
@@ -1382,8 +1354,8 @@ void MacroAssembler::call_VM_leaf_base(address entry_point) {
   BLOCK_COMMENT("} call_VM_leaf");
 }
 
-void MacroAssembler::call_VM(Register oop_result, address entry_point, bool check_exceptions) {
-  call_VM_base(oop_result, noreg, entry_point, check_exceptions);
+void MacroAssembler::call_VM(Register oop_result, address entry_point, bool check_exceptions, Label* last_java_pc) {
+  call_VM_base(oop_result, noreg, entry_point, check_exceptions, last_java_pc);
 }
 
 void MacroAssembler::call_VM(Register oop_result, address entry_point, Register arg_1,

@@ -550,23 +550,9 @@ inline void ThawBase::derelativize_interpreted_frame_metadata(const frame& hf, c
   // Keep top_frame_sp relativized.
 }
 
-inline intptr_t* ThawBase::push_resume_adapter(frame& top) {
-  intptr_t* sp = top.sp();
-
-  // If top is interpreted then a stub is required to restore the interpreter state.
-  if (top.is_interpreted_frame()) {
-    // Push stub frame.
-    sp -= frame::metadata_words;
-    assert(sp >= _top_stack_address, "thawing space overflow");
-    frame::java_abi* stub_abi = (frame::java_abi*)sp;
-    stub_abi->lr = (uint64_t)Interpreter::cont_resume_interpreter_adapter();
-    stub_abi->callers_sp = (uint64_t)top.sp();
-  }
-
-  log_develop_trace(continuations, preempt)("push_resume_adapter() initial sp: " INTPTR_FORMAT " final sp: " INTPTR_FORMAT,
-                                            p2i(top.sp()), p2i(sp));
-
-  return sp;
+inline intptr_t* ThawBase::possibly_adjust_frame(frame& top) {
+  // Nothing to do
+  return top.sp();
 }
 
 inline intptr_t* ThawBase::push_cleanup_continuation() {
@@ -590,16 +576,6 @@ inline void ThawBase::patch_pd(frame& f, const frame& caller) {
 
 inline void ThawBase::patch_pd(frame& f, intptr_t* caller_sp) {
   assert(f.own_abi()->callers_sp == (uint64_t)caller_sp, "should have been fixed by patch_caller_links");
-}
-
-inline void ThawBase::fix_native_wrapper_return_pc_pd(frame& top) {
-  // Nothing to do since the last java pc saved before making the call to
-  // JVM_MonitorWait() was already set to the correct resume pc. Just
-  // do some sanity check.
-#ifdef ASSERT
-  Method* method = top.is_interpreted_frame() ? top.interpreter_frame_method() : CodeCache::find_blob(top.pc())->as_nmethod()->method();
-  assert(method->is_object_wait0(), "");
-#endif
 }
 
 //

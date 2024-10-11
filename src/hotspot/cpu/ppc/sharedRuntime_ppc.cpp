@@ -2424,7 +2424,8 @@ nmethod *SharedRuntime::generate_native_wrapper(MacroAssembler *masm,
     // Do the call.
     __ set_last_Java_frame(R11_scratch1, r_last_java_pc);
     assert(r_last_java_pc->is_nonvolatile(), "r_last_java_pc needs to be preserved accross complete_monitor_locking_C call");
-    // Force freeze slow path in case we try to preempt. We will pin the
+    // The following call will not be preempted.
+    // push_cont_fastpath forces freeze slow path in case we try to preempt where we will pin the
     // vthread to the carrier (see FreezeBase::recurse_freeze_native_frame()).
     __ push_cont_fastpath();
     __ call_VM_leaf(CAST_FROM_FN_PTR(address, SharedRuntime::complete_monitor_locking_C), r_oop, r_box, R16_thread);

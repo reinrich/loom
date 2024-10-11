@@ -407,7 +407,8 @@ class MacroAssembler: public Assembler {
     // the entry point
     address         entry_point,
     // flag which indicates if exception should be checked
-    bool            check_exception = true
+    bool            check_exception = true,
+    Label* last_java_pc = nullptr
   );
 
   // Support for VM calls. This is the base routine called by the
@@ -420,7 +421,7 @@ class MacroAssembler: public Assembler {
   // Call into the VM.
   // Passes the thread pointer (in R3_ARG1) as a prepended argument.
   // Makes sure oop return values are visible to the GC.
-  void call_VM(Register oop_result, address entry_point, bool check_exceptions = true);
+  void call_VM(Register oop_result, address entry_point, bool check_exceptions = true, Label* last_java_pc = nullptr);
   void call_VM(Register oop_result, address entry_point, Register arg_1, bool check_exceptions = true);
   void call_VM(Register oop_result, address entry_point, Register arg_1, Register arg_2, bool check_exceptions = true);
   void call_VM(Register oop_result, address entry_point, Register arg_1, Register arg_2, Register arg3, bool check_exceptions = true);
