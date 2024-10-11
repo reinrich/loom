@@ -4583,7 +4583,7 @@ address generate_lookup_secondary_supers_table_stub(u1 super_klass_index) {
 
     __ clobber_nonvolatile_registers(); // Except R16_thread and R29_TOC
 
-    __ reset_last_Java_frame();
+    __ reset_last_Java_frame(false /*check_last_java_sp*/);
 
     // reset _preempting flag
 #ifdef ASSERT

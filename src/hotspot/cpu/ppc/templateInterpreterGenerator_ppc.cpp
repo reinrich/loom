@@ -701,14 +701,11 @@ address TemplateInterpreterGenerator::generate_cont_resume_interpreter_adapter()
   address start = __ pc();
 
   __ load_const_optimized(R25_templateTableBase, (address)Interpreter::dispatch_table((TosState)0), R12_scratch2);
-  __ pop_frame();     // stub
-  __ restore_LR(R0);
   __ restore_interpreter_state(R11_scratch1, false, true /*restore_top_frame_sp*/);
   __ blr();
 
   return start;
 }
-
 
 // Helpers for commoning out cases in the various type of method entries.
 
@@ -1325,7 +1322,7 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
   // convenient and the slow signature handler can use this same frame
   // anchor.
 
-  bool support_vthread_preemption = LockingMode != LM_LEGACY;
+  bool support_vthread_preemption = Continuations::enabled() && LockingMode != LM_LEGACY;
 
   // We have a TOP_IJAVA_FRAME here, which belongs to us.
   Label last_java_pc;
@@ -1525,22 +1522,13 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
     __ std(R0, in_bytes(JavaThread::preempt_alternate_return_offset()), R16_thread);
     __ blr();
 
-    // Execution will be resumed here if the vthread was preempted
+    // Execution will be resumed here when the vthread becomes runnable again.
     __ bind(*resume_pc);
-#ifdef ASSERT
-    // Assert FP is in R11_scratch1 (see generate_cont_resume_interpreter_adapter())
-    { Label ok;
-    __ ld(R12_scratch2, 0, R1_SP);  // load fp
-    __ cmpd(CCR0, R12_scratch2, R11_scratch1);
-    __ beq(CCR0, ok);
-    __ stop(FILE_AND_LINE ": FP is expected in R11_scratch1");
-    __ bind(ok);
-    }
-#endif
+    __ restore_after_resume(R11_scratch1 /* fp */);
     // We saved the result handler before the call
     __ ld(result_handler_addr, _ijava_state_neg(lresult), R11_scratch1);
 #ifdef ASSERT
-    // Kill result slots. Only native methods returning void can be preemted currently.
+    // Clobber result slots. Only native methods returning void can be preemted currently.
     __ load_const(R3_RET, UCONST64(0xbad01001));
     __ std(R3_RET, _ijava_state_neg(lresult), R11_scratch1);
     __ std(R3_RET, _ijava_state_neg(fresult), R11_scratch1);
