@@ -1260,8 +1260,8 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   // access_flags = method->access_flags();
   // Load access flags.
-  assert(access_flags->is_nonvolatile_accross_preemption(),
-         "access_flags must be in a non-volatile register");
+  assert(__ nonvolatile_accross_vthread_preemtion(access_flags),
+         "access_flags not preserved");
   // Type check.
   assert(4 == sizeof(AccessFlags), "unexpected field size");
   __ lwz(access_flags, method_(access_flags));
@@ -1346,8 +1346,8 @@ address TemplateInterpreterGenerator::generate_native_entry(bool synchronized) {
 
   __ call_stub(signature_handler_fd);
 
-  assert(result_handler_addr->is_nonvolatile_accross_preemption(),
-         "result_handler_addr must be in a non-volatile register");
+  assert(__ nonvolatile_accross_vthread_preemtion(result_handler_addr),
+         "result_handler_addr not preserved");
   // Save across call to native method.
   __ mr(result_handler_addr, R3_RET);
   __ ld(R11_scratch1, _abi0(callers_sp), R1_SP); // load FP
