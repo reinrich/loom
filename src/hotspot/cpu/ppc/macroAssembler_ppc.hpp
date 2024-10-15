@@ -290,10 +290,10 @@ class MacroAssembler: public Assembler {
   // Clobbers all volatile, (non-floating-point) general-purpose registers for debugging purposes.
   // This is especially useful for making calls to the JRT in places in which this hasn't been done before;
   // e.g. with the introduction of LRBs (load reference barriers) for concurrent garbage collection.
-  void clobber_volatile_gprs(Register excluded_register = noreg);
+  void clobber_volatile_gprs(Register excluded_register = noreg) NOT_DEBUG_RETURN;
   // Load bad values into registers that are nonvolatile according to the ABI except R16_thread and R29_TOC.
   // This is done after vthread preemption and before vthread resume.
-  void clobber_nonvolatile_registers() PRODUCT_RETURN;
+  void clobber_nonvolatile_registers() NOT_DEBUG_RETURN;
   void clobber_carg_stack_slots(Register tmp);
 
   void save_nonvolatile_gprs(   Register dst_base, int offset);

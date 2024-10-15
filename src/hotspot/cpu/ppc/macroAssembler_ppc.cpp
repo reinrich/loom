@@ -719,6 +719,7 @@ address MacroAssembler::get_dest_of_bxx64_patchable_at(address instruction_addr,
   }
 }
 
+#ifdef ASSERT
 void MacroAssembler::clobber_volatile_gprs(Register excluded_register) {
   const int magic_number = 0x42;
 
@@ -763,6 +764,7 @@ void MacroAssembler::clobber_nonvolatile_registers() {
   }
   BLOCK_COMMENT("} clobber nonvolatile registers");
 }
+#endif // ASSERT
 
 void MacroAssembler::clobber_carg_stack_slots(Register tmp) {
   const int magic_number = 0x43;
