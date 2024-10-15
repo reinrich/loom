@@ -2168,8 +2168,8 @@ void InterpreterMacroAssembler::call_VM_preemptable(Register oop_result, address
 
   Label resume_pc, not_preempted;
 
-  // Make sure the values in R31 and R22 are retained even if the vthread gets preempted.
-  assert(R31->is_nonvolatile_accross_preemption() && R22->is_nonvolatile_accross_preemption(), "");
+  // Preserve 2 registers
+  assert(nonvolatile_accross_vthread_preemtion(R31) && nonvolatile_accross_vthread_preemtion(R22), "");
   ld(R3_ARG1, _abi0(callers_sp), R1_SP); // load FP
   std(R31, _ijava_state_neg(lresult), R3_ARG1);
   std(R22, _ijava_state_neg(fresult), R3_ARG1);
@@ -2202,6 +2202,8 @@ void InterpreterMacroAssembler::restore_after_resume(Register fp) {
   add_const_optimized(R31, R29_TOC, MacroAssembler::offset_to_global_toc(resume_adapter));
   mtctr(R31);
   bctrl();
+  // Restore registers that are preserved across vthread preemption
+  assert(nonvolatile_accross_vthread_preemtion(R31) && nonvolatile_accross_vthread_preemtion(R22), "");
   ld(R3_ARG1, _abi0(callers_sp), R1_SP); // load FP
   ld(R31, _ijava_state_neg(lresult), R3_ARG1);
   ld(R22, _ijava_state_neg(fresult), R3_ARG1);
