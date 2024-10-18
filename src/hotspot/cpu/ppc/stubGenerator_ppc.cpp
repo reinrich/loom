@@ -4585,20 +4585,7 @@ address generate_lookup_secondary_supers_table_stub(u1 super_klass_index) {
 
     __ reset_last_Java_frame(false /*check_last_java_sp*/);
 
-    // reset _preempting flag
-#ifdef ASSERT
-    { Label L;
-      __ lbz(R11_scratch1, in_bytes(JavaThread::preempting_offset()), R16_thread);
-      __ cmpwi(CCR0, R11_scratch1, 0);
-      __ bne(CCR0, L);
-      __ stop("preempting flag should be set");
-      __ bind(L);
-    }
-#endif
-    __ li(R11_scratch1, 0); // false
-    __ stb(R11_scratch1, in_bytes(JavaThread::preempting_offset()), R16_thread);
-
-    // Set rsp to enterSpecial frame
+    // Set sp to enterSpecial frame, i.e. remove all frames copied into the heap.
     __ ld_ptr(R1_SP, JavaThread::cont_entry_offset(), R16_thread);
 
     Label preemption_cancelled;
@@ -4606,12 +4593,13 @@ address generate_lookup_secondary_supers_table_stub(u1 super_klass_index) {
     __ cmpwi(CCR0, R11_scratch1, 0);
     __ bne(CCR0, preemption_cancelled);
 
-    // Remove enterSpecial frame from the stack and return to Continuation.run()
+    // Remove enterSpecial frame from the stack and return to Continuation.run() to unmount.
     SharedRuntime::continuation_enter_cleanup(_masm);
     __ pop_frame();
     __ restore_LR(R11_scratch1);
     __ blr();
 
+    // We acquired the monitor after freezing the frames so call thaw to continue execution.
     __ bind(preemption_cancelled);
     __ li(R11_scratch1, 0); // false
     __ stb(R11_scratch1, in_bytes(JavaThread::preemption_cancelled_offset()), R16_thread);

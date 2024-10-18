@@ -2168,6 +2168,10 @@ void InterpreterMacroAssembler::call_VM_preemptable(Register oop_result, address
 
   Label resume_pc, not_preempted;
 
+  DEBUG_ONLY(ld(R0, in_bytes(JavaThread::preempt_alternate_return_offset()), R16_thread));
+  DEBUG_ONLY(cmpdi(CCR0, R0, 0));
+  asm_assert_eq("Should not have alternate return address set");
+
   // Preserve 2 registers
   assert(nonvolatile_accross_vthread_preemtion(R31) && nonvolatile_accross_vthread_preemtion(R22), "");
   ld(R3_ARG1, _abi0(callers_sp), R1_SP); // load FP
